@@ -8,12 +8,8 @@
 #include "toml.hpp"
 
 int rnd;
-int rnd2;
 
-int defaultLoading = 0;
 bool randomLoading = false;
-int loadingStyle = 0;
-
 toml::table config;
 
 //1.0.1 0x14040B6C0
@@ -23,10 +19,6 @@ SIG_SCAN ( sigStartSong, "\x41\x54\x41\x55\x41\x57\x48\x83\xEC\x30\x4C\x8B\xFA\x
 //1.0.1 0x140CC30F0
 //1.0.2 0x140CC2138
 SIG_SCAN ( sigLoadingBg, "\x6C\x6F\x61\x64\x69\x6E\x67\x5F\x62\x67\x00\x00\x00\x00\x00\x00", "xxxxxxxxxx??????" )
-
-//1.0.1 0x140CC30B8
-//1.0.2 0x140CC2198
-SIG_SCAN( sigNowLoading, "\x6E\x6F\x77\x5F\x6C\x6F\x61\x64\x69\x6E\x67\x00\x00\x00\x00\x00", "xxxxxxxxxxx?????" )
 
 void InjectCode(void* address, const std::vector<uint8_t> data)
 {
@@ -38,123 +30,61 @@ void InjectCode(void* address, const std::vector<uint8_t> data)
 	VirtualProtect(address, byteCount, oldProtect, nullptr);
 }
 
-void load_bg(unsigned char v1, unsigned char v2, unsigned char v3)
+void load_bg(unsigned char v1, unsigned char v2)
 {
 	unsigned char zeroX = '0x0';
 	std::stringstream sstream;
 	sstream << std::hex << v1;
 	sstream << std::hex << v2;
-	sstream << std::hex << v3;
 	std::string result = sstream.str();
 	unsigned char V1 = zeroX + v1;
 	unsigned char V2 = zeroX + v2;
-	unsigned char V3 = zeroX + v3;
-	InjectCode((void*)sigLoadingBg(), { 0x6C, 0x6F, 0x61, 0x64, 0x69, 0x6E, 0x67, V1, V2, V3 }); //loadingxxx
+	InjectCode((void*)sigLoadingBg(), { 0x6C, 0x6F, 0x61, 0x64, 0x69, 0x6E, 0x67, 0x5F, V1, V2 }); //loading_xx
 }
 
 void random_bg()
 {
-	int rnd = rand() % 105;
-	int first = rnd / 100;
-	rnd = rnd % 100;
-	int second = rnd / 10;
+	srand(time(NULL));
+	rnd = rand() % 40;
+	int first = rnd / 10;
 	rnd = rnd % 10;
-	int third = rnd;
-	load_bg(first, second, third);
-}
-
-void set_load_style(int x1)
-{
-	switch (x1) {
-
-	case 1: //F2nd
-		WRITE_MEMORY(sigNowLoading(), uint8_t, 0x64, 0x66, 0x32);
-		break;
-
-	case 2: //F
-		WRITE_MEMORY(sigNowLoading(), uint8_t, 0x70, 0x6A, 0x66);
-		break;
-
-	default: //X
-		WRITE_MEMORY(sigNowLoading(), uint8_t, 0x6E, 0x6F, 0x77);
-		break;
-	}
-}
-
-void random_load()
-{
-	rnd2 = (rand() % 3);
-	set_load_style(rnd2);
+	int second = rnd;
+	load_bg(first, second);
 }
 
 HOOK(void, __fastcall, _StartSong, sigStartSong(), int* a1, __int64 a2, char a3)
 {
 	original_StartSong(a1, a2, a3);
 	random_bg();
-	if (loadingStyle == 3)
-	{
-		random_load();
-	}
 }
 
 extern "C" __declspec(dllexport) void Init()
 {
-	printf("[F, F2nd and X UI Loading for MM+] Initializing...\n");
+	printf("[X UI Loading for MM+] Initializing...\n");
 	try
 	{
 		config = toml::parse_file("config.toml");
 		try
 		{
-			defaultLoading = config["Default_Loading"].value_or(0);
 			randomLoading = config["Random_Loading"].value_or(false);
-			loadingStyle = config["Loading_Style"].value_or(0);
 		}
 		catch (std::exception& exception)
 		{
 			char text[1024];
 			sprintf_s(text, "Failed to parse config.toml:\n%s", exception.what());
-			MessageBoxA(nullptr, text, "F, F2nd and X UI Loading for MM+", MB_OK | MB_ICONERROR);
+			MessageBoxA(nullptr, text, "X UI Loading for MM+", MB_OK | MB_ICONERROR);
 		}
 	}
 	catch (std::exception& exception)
 	{
 		char text[1024];
 		sprintf_s(text, "Failed to parse config.toml:\n%s", exception.what());
-		MessageBoxA(nullptr, text, "F, F2nd and X UI Loading for MM+", MB_OK | MB_ICONERROR);
-	}
-
-	srand(time(NULL));
-
-	if (defaultLoading == 1)
-	{
-		WRITE_MEMORY(sigLoadingBg(), uint8_t, 0x6C, 0x6F, 0x61, 0x64, 0x69, 0x6E, 0x67, 0x5F, 0x66, 0x32); //loading_f2
+		MessageBoxA(nullptr, text, "X UI Loading for MM+", MB_OK | MB_ICONERROR);
 	}
 
 	if (randomLoading)
 	{
 		random_bg();
-		INSTALL_HOOK(_StartSong);
-	}
-
-	if (loadingStyle != 3)
-	{
-		switch (loadingStyle) {
-		case 1: //F2nd
-			WRITE_MEMORY(sigNowLoading(), uint8_t, 0x64, 0x66, 0x32);
-			break;
-
-		case 2: //F
-			WRITE_MEMORY(sigNowLoading(), uint8_t, 0x70, 0x6A, 0x66);
-			break;
-
-		default: //X
-			WRITE_MEMORY(sigNowLoading(), uint8_t, 0x6E, 0x6F, 0x77);
-			break;
-		}
-	}
-	else
-	{
-		random_load();
 		INSTALL_HOOK(_StartSong);
 	}
 }
